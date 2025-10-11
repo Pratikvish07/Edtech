@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video } from 'expo-av';
@@ -15,10 +15,11 @@ type Course = {
   duration: string;
   level: string;
   language: string;
+  rating: number;
+  reviews: number;
 };
 
 export default function CoursesScreen({ navigation }: any) {
-  // === STATES ===
   const [searchQuery, setSearchQuery] = useState('');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [cart, setCart] = useState<string[]>([]);
@@ -29,53 +30,18 @@ export default function CoursesScreen({ navigation }: any) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showCart, setShowCart] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [showCourseModal, setShowCourseModal] = useState(false);
+  const [showAllCourses, setShowAllCourses] = useState(false);
 
-  // === MOCK DATA ===
+  // Expanded course data
   const courses: Course[] = [
-    {
-      id: '1',
-      title: 'React Native Masterclass',
-      description: 'Learn cross-platform app development.',
-      instructor: 'John Doe',
-      price: 99,
-      image: '📱',
-      demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4',
-      lessons: 42,
-      duration: '8 weeks',
-      level: 'Intermediate',
-      language: 'English',
-    },
-    {
-      id: '2',
-      title: 'Advanced JavaScript',
-      description: 'Deep dive into JS concepts.',
-      instructor: 'Jane Smith',
-      price: 79,
-      image: '⚡',
-      demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4',
-      lessons: 36,
-      duration: '6 weeks',
-      level: 'Advanced',
-      language: 'English',
-    },
-    {
-      id: '3',
-      title: 'UI/UX Design',
-      description: 'Master modern product design.',
-      instructor: 'Mike Johnson',
-      price: 89,
-      image: '🎨',
-      demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4',
-      lessons: 28,
-      duration: '7 weeks',
-      level: 'Beginner',
-      language: 'English',
-    },
+    { id: '1', title: 'React Native Masterclass', description: 'Learn cross-platform app development.', instructor: 'John Doe', price: 99, image: '📱', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 42, duration: '8 weeks', level: 'Intermediate', language: 'English', rating: 4.8, reviews: 120 },
+    { id: '2', title: 'Advanced JavaScript', description: 'Deep dive into JS concepts.', instructor: 'Jane Smith', price: 79, image: '⚡', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 36, duration: '6 weeks', level: 'Advanced', language: 'English', rating: 4.6, reviews: 95 },
+    { id: '3', title: 'UI/UX Design', description: 'Master modern product design.', instructor: 'Mike Johnson', price: 89, image: '🎨', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 28, duration: '7 weeks', level: 'Beginner', language: 'English', rating: 4.5, reviews: 110 },
+    { id: '4', title: 'Python for Beginners', description: 'Learn Python from scratch.', instructor: 'Alice Brown', price: 69, image: '🐍', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 32, duration: '6 weeks', level: 'Beginner', language: 'English', rating: 4.7, reviews: 80 },
+    { id: '5', title: 'Machine Learning', description: 'Intro to ML concepts and applications.', instructor: 'Bob Martin', price: 129, image: '🤖', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 50, duration: '10 weeks', level: 'Advanced', language: 'English', rating: 4.9, reviews: 150 },
+    { id: '6', title: 'Fullstack Web Dev', description: 'Become a fullstack developer.', instructor: 'Sara Lee', price: 109, image: '💻', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 45, duration: '9 weeks', level: 'Intermediate', language: 'English', rating: 4.6, reviews: 130 },
   ];
 
-  // === FUNCTIONS ===
   const toggleFavorite = (courseId: string) => {
     setFavorites(prev =>
       prev.includes(courseId)
@@ -108,11 +74,10 @@ export default function CoursesScreen({ navigation }: any) {
     ]);
   };
 
-  // === COMPONENTS ===
   const renderCourseCard = (course: Course) => (
-    <View key={course.id} className="bg-white rounded-2xl shadow-lg p-4 mb-5">
+    <View key={course.id} className="bg-white rounded-2xl shadow-lg p-4 mr-4 w-72">
       <View className="flex-row justify-between items-start mb-2">
-        <Text className="text-3xl mr-3">{course.image}</Text>
+        <Text className="text-3xl mr-2">{course.image}</Text>
         <View className="flex-1">
           <Text className="text-lg font-bold text-gray-900">{course.title}</Text>
           <Text className="text-gray-600 text-sm">by {course.instructor}</Text>
@@ -126,22 +91,19 @@ export default function CoursesScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      <Text className="text-gray-600 mb-3" numberOfLines={2}>
-        {course.description}
-      </Text>
+      <Text className="text-gray-600 mb-2" numberOfLines={2}>{course.description}</Text>
 
       <Video
         source={{ uri: course.demoVideo }}
         rate={1.0}
         volume={1.0}
         isMuted={false}
-        
         shouldPlay={false}
         useNativeControls
-        className="w-full h-40 rounded-xl mb-3"
+        className="w-full h-36 rounded-xl mb-2"
       />
 
-      <View className="flex-row justify-between items-center mb-3">
+      <View className="flex-row items-center justify-between mb-2">
         <Text className="text-lg font-bold text-gray-900">${course.price}</Text>
         <View className="flex-row space-x-2">
           <TouchableOpacity
@@ -162,7 +124,7 @@ export default function CoursesScreen({ navigation }: any) {
         </View>
       </View>
 
-      <View className="flex-row flex-wrap space-x-2">
+      <View className="flex-row flex-wrap space-x-2 mb-2">
         <View className="bg-gray-100 px-2 py-1 rounded-full mb-1">
           <Text className="text-gray-700 text-xs">{course.duration}</Text>
         </View>
@@ -177,18 +139,13 @@ export default function CoursesScreen({ navigation }: any) {
         </View>
       </View>
 
-      {/* Extra Sections */}
-      <View className="mt-3 space-y-2">
-        <Text className="font-semibold text-gray-900">Live Class:</Text>
-        <Text className="text-gray-600 text-sm">Next live session on Wed 6 PM</Text>
-
-        <Text className="font-semibold text-gray-900">Attendance:</Text>
-        <Text className="text-gray-600 text-sm">85% completed</Text>
-
+      {/* Extra features */}
+      <View className="space-y-1 mb-2">
+        <Text className="text-yellow-500 font-semibold">{'⭐'.repeat(Math.round(course.rating))} ({course.reviews} reviews)</Text>
+        <Text className="font-semibold text-gray-900">Live Class: <Text className="text-gray-600">Wed 6 PM</Text></Text>
+        <Text className="font-semibold text-gray-900">Attendance: <Text className="text-gray-600">85% completed</Text></Text>
         <Text className="font-semibold text-gray-900">Faculty Doubts:</Text>
         <Text className="text-gray-600 text-sm">Ask questions directly to your instructor</Text>
-
-        <Text className="font-semibold text-gray-900">Books Download:</Text>
         <TouchableOpacity className="bg-yellow-500 px-3 py-2 rounded-xl w-36">
           <Text className="text-white font-semibold text-center">Download PDFs</Text>
         </TouchableOpacity>
@@ -199,11 +156,11 @@ export default function CoursesScreen({ navigation }: any) {
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="flex-row justify-between items-center px-6 pt-12 pb-4 bg-blue-600">
+      <View className="flex-row justify-between items-center px-6 pt-16 pb-6 bg-blue-600 shadow-lg">
         <Text className="text-2xl font-bold text-white">Courses</Text>
         <View className="flex-row items-center space-x-4">
           <TouchableOpacity onPress={() => setShowCart(true)}>
-            <Ionicons name="cart" size={22} color="white" />
+            <Ionicons name="cart" size={24} color="white" />
             {cart.length > 0 && (
               <View className="absolute top-[-4] right-[-6] bg-red-500 rounded-full px-1">
                 <Text className="text-xs text-white">{cart.length}</Text>
@@ -212,17 +169,17 @@ export default function CoursesScreen({ navigation }: any) {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => setShowNotifications(true)}>
-            <Ionicons name="notifications" size={22} color="white" />
+            <Ionicons name="notifications" size={24} color="white" />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => setShowUserMenu(true)}>
-            <Ionicons name="person-circle" size={26} color="white" />
+            <Ionicons name="person-circle" size={28} color="white" />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Search Bar */}
-      <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center bg-white shadow">
+      <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center bg-white shadow mb-4">
         <Ionicons name="search" size={20} color="#6b7280" />
         <TextInput
           className="flex-1 ml-3 text-gray-800"
@@ -238,71 +195,17 @@ export default function CoursesScreen({ navigation }: any) {
         )}
       </View>
 
-      {/* Courses List */}
-      <ScrollView className="mt-6 px-6 pb-20">
-        {courses.filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase())).map(renderCourseCard)}
+      {/* Horizontal Slider */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6">
+        {(showAllCourses ? courses : courses.slice(0, 3))
+          .filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase()))
+          .map(renderCourseCard)}
+        {!showAllCourses && (
+          <TouchableOpacity onPress={() => setShowAllCourses(true)} className="bg-gray-200 w-72 h-80 justify-center items-center rounded-2xl ml-2">
+            <Text className="text-gray-700 font-bold">Show More Courses</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
-
-      {/* Cart Modal */}
-      <Modal visible={showCart} animationType="slide" transparent>
-        <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-white rounded-t-3xl p-6">
-            <Text className="text-xl font-bold mb-3 text-gray-900">Your Cart</Text>
-            {cart.length === 0 ? (
-              <Text className="text-gray-600">Your cart is empty.</Text>
-            ) : (
-              cart.map(id => {
-                const c = courses.find(c => c.id === id);
-                return (
-                  <View key={id} className="flex-row justify-between items-center mb-3">
-                    <Text className="text-gray-900">{c?.title}</Text>
-                    <Text className="text-gray-600">${c?.price}</Text>
-                  </View>
-                );
-              })
-            )}
-            <TouchableOpacity onPress={() => setShowCart(false)} className="mt-4 bg-blue-500 py-3 rounded-xl">
-              <Text className="text-center text-white font-semibold">Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Notifications Modal */}
-      <Modal visible={showNotifications} animationType="slide" transparent>
-        <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-white rounded-t-3xl p-6">
-            <Text className="text-xl font-bold mb-3 text-gray-900">Notifications</Text>
-            {notifications.map(n => (
-              <View key={n.id} className="p-3 mb-2 rounded-lg bg-gray-100">
-                <Text className="font-semibold text-gray-900">{n.title}</Text>
-                <Text className="text-gray-600">{n.message}</Text>
-              </View>
-            ))}
-            <TouchableOpacity onPress={() => setShowNotifications(false)} className="mt-4 bg-blue-500 py-3 rounded-xl">
-              <Text className="text-center text-white font-semibold">Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* User Menu Modal */}
-      <Modal visible={showUserMenu} animationType="fade" transparent>
-        <View className="flex-1 justify-center items-center bg-black/50">
-          <View className="bg-white w-4/5 rounded-2xl p-6">
-            <Text className="text-xl font-bold mb-3 text-gray-900">User Account</Text>
-            <Text className="text-gray-600 mb-4">John Doe • johndoe@email.com</Text>
-
-            <TouchableOpacity onPress={handleLogout} className="bg-red-500 py-3 rounded-xl mb-3">
-              <Text className="text-white text-center font-semibold">Logout</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => setShowUserMenu(false)} className="bg-gray-300 py-3 rounded-xl">
-              <Text className="text-center text-gray-800 font-semibold">Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
