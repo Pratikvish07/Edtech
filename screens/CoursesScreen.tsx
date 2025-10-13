@@ -1,211 +1,239 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  FlatList,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Video } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type Course = {
   id: string;
   title: string;
+  category: string;
+  enrolled: boolean;
+  upcoming: boolean;
   description: string;
-  instructor: string;
-  price: number;
-  image: string;
-  demoVideo: string;
-  lessons: number;
-  duration: string;
-  level: string;
-  language: string;
+  modules: string[];
   rating: number;
-  reviews: number;
+  demo?: boolean;
+  demoVideo?: string; // URL for demo video
+  liveSession?: boolean; // Indicates a live session
 };
 
-export default function CoursesScreen({ navigation }: any) {
+const mockCourses: Course[] = [
+  {
+    id: '1',
+    title: 'React Native Basics',
+    category: 'mobile',
+    enrolled: true,
+    upcoming: false,
+    description: 'Learn React Native from scratch and build mobile apps.',
+    modules: ['JS Basics', 'Components', 'State & Props', 'Navigation', 'APIs'],
+    rating: 4.5,
+    demoVideo: 'https://sample-videos.com/video123/mp4/240/big_buck_bunny_240p_1mb.mp4',
+    liveSession: true,
+  },
+  {
+    id: '2',
+    title: 'Advanced React',
+    category: 'web',
+    enrolled: false,
+    upcoming: true,
+    description: 'Deep dive into React hooks, context, and performance optimization.',
+    modules: ['Hooks', 'Context API', 'Performance', 'Testing'],
+    rating: 4.8,
+    demo: true,
+    demoVideo: 'https://sample-videos.com/video123/mp4/240/big_buck_bunny_240p_1mb.mp4',
+  },
+  {
+    id: '3',
+    title: 'Node.js API',
+    category: 'backend',
+    enrolled: true,
+    upcoming: false,
+    description: 'Build scalable REST APIs using Node.js and Express.',
+    modules: ['Express', 'MongoDB', 'Authentication', 'Deployment'],
+    rating: 4.6,
+  },
+  {
+    id: '4',
+    title: 'Next.js 14',
+    category: 'web',
+    enrolled: false,
+    upcoming: false,
+    description: 'Learn SSR, SSG, and routing with Next.js 14.',
+    modules: ['Pages', 'SSR/SSG', 'API Routes', 'Styling'],
+    rating: 4.7,
+    demoVideo: 'https://sample-videos.com/video123/mp4/240/big_buck_bunny_240p_1mb.mp4',
+  },
+];
+
+export default function CoursesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [cart, setCart] = useState<string[]>([]);
-  const [notifications, setNotifications] = useState([
-    { id: '1', title: '🔥 New Course Added', message: 'Learn AI in 4 weeks!' },
-    { id: '2', title: '💰 Discount Offer', message: 'Get 30% off React Native course.' },
-  ]);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showCart, setShowCart] = useState(false);
-  const [showAllCourses, setShowAllCourses] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'enrolled' | 'upcoming' | 'demo'>('all');
+  const [cart, setCart] = useState<Course[]>([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(3);
+  const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
 
-  // Expanded course data
-  const courses: Course[] = [
-    { id: '1', title: 'React Native Masterclass', description: 'Learn cross-platform app development.', instructor: 'John Doe', price: 99, image: '📱', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 42, duration: '8 weeks', level: 'Intermediate', language: 'English', rating: 4.8, reviews: 120 },
-    { id: '2', title: 'Advanced JavaScript', description: 'Deep dive into JS concepts.', instructor: 'Jane Smith', price: 79, image: '⚡', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 36, duration: '6 weeks', level: 'Advanced', language: 'English', rating: 4.6, reviews: 95 },
-    { id: '3', title: 'UI/UX Design', description: 'Master modern product design.', instructor: 'Mike Johnson', price: 89, image: '🎨', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 28, duration: '7 weeks', level: 'Beginner', language: 'English', rating: 4.5, reviews: 110 },
-    { id: '4', title: 'Python for Beginners', description: 'Learn Python from scratch.', instructor: 'Alice Brown', price: 69, image: '🐍', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 32, duration: '6 weeks', level: 'Beginner', language: 'English', rating: 4.7, reviews: 80 },
-    { id: '5', title: 'Machine Learning', description: 'Intro to ML concepts and applications.', instructor: 'Bob Martin', price: 129, image: '🤖', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 50, duration: '10 weeks', level: 'Advanced', language: 'English', rating: 4.9, reviews: 150 },
-    { id: '6', title: 'Fullstack Web Dev', description: 'Become a fullstack developer.', instructor: 'Sara Lee', price: 109, image: '💻', demoVideo: 'https://www.w3schools.com/html/mov_bbb.mp4', lessons: 45, duration: '9 weeks', level: 'Intermediate', language: 'English', rating: 4.6, reviews: 130 },
-  ];
+  const user = { name: 'Pratik' };
 
-  const toggleFavorite = (courseId: string) => {
-    setFavorites(prev =>
-      prev.includes(courseId)
-        ? prev.filter(id => id !== courseId)
-        : [...prev, courseId]
-    );
+  const filteredCourses = mockCourses
+    .filter(course => {
+      if (activeTab === 'enrolled') return course.enrolled;
+      if (activeTab === 'upcoming') return course.upcoming;
+      if (activeTab === 'demo') return course.demo;
+      return true;
+    })
+    .filter(course => course.title.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const handleLogout = () => console.log('Logging out...');
+  const handleAddToCart = (course: Course) => {
+    if (!cart.find(c => c.id === course.id)) setCart(prev => [...prev, course]);
   };
-
-  const addToCart = (courseId: string) => {
-    if (!cart.includes(courseId)) {
-      setCart(prev => [...prev, courseId]);
-      Alert.alert('Added to Cart', 'Course added to your cart successfully.');
-    } else {
-      Alert.alert('Already in Cart', 'This course is already in your cart.');
-    }
-  };
-
-  const handleEnroll = (course: Course) => {
-    Alert.alert('Enroll', `You are enrolling in ${course.title}`);
-  };
-
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: () => Alert.alert('Logged Out', 'You have been logged out successfully.'),
-      },
-    ]);
-  };
-
-  const renderCourseCard = (course: Course) => (
-    <View key={course.id} className="bg-white rounded-2xl shadow-lg p-4 mr-4 w-72">
-      <View className="flex-row justify-between items-start mb-2">
-        <Text className="text-3xl mr-2">{course.image}</Text>
-        <View className="flex-1">
-          <Text className="text-lg font-bold text-gray-900">{course.title}</Text>
-          <Text className="text-gray-600 text-sm">by {course.instructor}</Text>
-        </View>
-        <TouchableOpacity onPress={() => toggleFavorite(course.id)}>
-          <Ionicons
-            name={favorites.includes(course.id) ? 'heart' : 'heart-outline'}
-            size={22}
-            color={favorites.includes(course.id) ? '#ef4444' : '#9ca3af'}
-          />
-        </TouchableOpacity>
-      </View>
-
-      <Text className="text-gray-600 mb-2" numberOfLines={2}>{course.description}</Text>
-
-      <Video
-        source={{ uri: course.demoVideo }}
-        rate={1.0}
-        volume={1.0}
-        isMuted={false}
-        shouldPlay={false}
-        useNativeControls
-        className="w-full h-36 rounded-xl mb-2"
-      />
-
-      <View className="flex-row items-center justify-between mb-2">
-        <Text className="text-lg font-bold text-gray-900">${course.price}</Text>
-        <View className="flex-row space-x-2">
-          <TouchableOpacity
-            onPress={() => addToCart(course.id)}
-            className="bg-green-500 px-3 py-2 rounded-xl flex-row items-center"
-          >
-            <Ionicons name="cart" size={16} color="white" />
-            <Text className="text-white ml-1 font-semibold">Add</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => handleEnroll(course)}
-            className="bg-blue-500 px-3 py-2 rounded-xl flex-row items-center"
-          >
-            <Ionicons name="play" size={16} color="white" />
-            <Text className="text-white ml-1 font-semibold">Enroll</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View className="flex-row flex-wrap space-x-2 mb-2">
-        <View className="bg-gray-100 px-2 py-1 rounded-full mb-1">
-          <Text className="text-gray-700 text-xs">{course.duration}</Text>
-        </View>
-        <View className="bg-gray-100 px-2 py-1 rounded-full mb-1">
-          <Text className="text-gray-700 text-xs">{course.lessons} lessons</Text>
-        </View>
-        <View className="bg-gray-100 px-2 py-1 rounded-full mb-1">
-          <Text className="text-gray-700 text-xs">{course.level}</Text>
-        </View>
-        <View className="bg-gray-100 px-2 py-1 rounded-full mb-1">
-          <Text className="text-gray-700 text-xs">{course.language}</Text>
-        </View>
-      </View>
-
-      {/* Extra features */}
-      <View className="space-y-1 mb-2">
-        <Text className="text-yellow-500 font-semibold">{'⭐'.repeat(Math.round(course.rating))} ({course.reviews} reviews)</Text>
-        <Text className="font-semibold text-gray-900">Live Class: <Text className="text-gray-600">Wed 6 PM</Text></Text>
-        <Text className="font-semibold text-gray-900">Attendance: <Text className="text-gray-600">85% completed</Text></Text>
-        <Text className="font-semibold text-gray-900">Faculty Doubts:</Text>
-        <Text className="text-gray-600 text-sm">Ask questions directly to your instructor</Text>
-        <TouchableOpacity className="bg-yellow-500 px-3 py-2 rounded-xl w-36">
-          <Text className="text-white font-semibold text-center">Download PDFs</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  const toggleExpand = (id: string) => setExpandedCourse(expandedCourse === id ? null : id);
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View className="flex-1 bg-gray-100">
       {/* Header */}
-      <View className="flex-row justify-between items-center px-6 pt-16 pb-6 bg-blue-600 shadow-lg">
-        <Text className="text-2xl font-bold text-white">Courses</Text>
-        <View className="flex-row items-center space-x-4">
-          <TouchableOpacity onPress={() => setShowCart(true)}>
-            <Ionicons name="cart" size={24} color="white" />
-            {cart.length > 0 && (
-              <View className="absolute top-[-4] right-[-6] bg-red-500 rounded-full px-1">
-                <Text className="text-xs text-white">{cart.length}</Text>
+      <LinearGradient colors={['#4F46E5', '#7C73E6']} className="pt-12 px-4 pb-4">
+        <View className="flex-row justify-between items-center mb-3">
+          <View>
+            <Text className="text-white text-2xl font-bold">Hi, {user.name}! 👋</Text>
+            <Text className="text-white text-sm opacity-80">Find your next course</Text>
+          </View>
+          <View className="flex-row items-center space-x-3">
+            <TouchableOpacity className="relative p-1">
+              <Ionicons name="notifications-outline" size={24} color="white" />
+              {unreadNotificationsCount > 0 && (
+                <View className="absolute -top-1 -right-1 bg-red-500 w-4 h-4 rounded-full justify-center items-center">
+                  <Text className="text-white text-[10px] font-bold">{unreadNotificationsCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity className="relative p-1">
+              <Ionicons name="cart-outline" size={24} color="white" />
+              {cart.length > 0 && (
+                <View className="absolute -top-1 -right-1 bg-green-500 w-4 h-4 rounded-full justify-center items-center">
+                  <Text className="text-white text-[10px] font-bold">{cart.length}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLogout} className="p-1">
+              <Ionicons name="log-out-outline" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Search */}
+        <View className="flex-row items-center bg-white rounded-full px-3 py-2 shadow-sm">
+          <Ionicons name="search" size={18} color="#6B7280" />
+          <TextInput
+            placeholder="Search courses..."
+            className="ml-2 flex-1 text-gray-700 text-sm"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color="#6B7280" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Tabs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3">
+          {['all', 'enrolled', 'upcoming', 'demo'].map(tab => (
+            <TouchableOpacity
+              key={tab}
+              onPress={() => setActiveTab(tab as any)}
+              className={`px-4 py-1 rounded-full mr-2 ${activeTab === tab ? 'bg-white/30' : 'bg-white/10'}`}
+            >
+              <Text className="text-white font-medium text-sm">
+                {tab === 'all'
+                  ? 'All Courses'
+                  : tab === 'enrolled'
+                  ? `My Courses (${mockCourses.filter(c => c.enrolled).length})`
+                  : tab === 'upcoming'
+                  ? 'Upcoming'
+                  : 'Demo Courses'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </LinearGradient>
+
+      {/* Course List */}
+      <FlatList
+        data={filteredCourses}
+        keyExtractor={item => item.id}
+        contentContainerStyle={{ padding: 16, paddingBottom: 50 }}
+        renderItem={({ item }) => (
+          <View className="bg-white rounded-xl p-4 mb-4 shadow">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-gray-900 font-semibold text-base">{item.title}</Text>
+              {item.demo && (
+                <View className="bg-yellow-500 px-2 py-1 rounded">
+                  <Text className="text-white text-[10px]">Demo</Text>
+                </View>
+              )}
+              {item.liveSession && (
+                <View className="bg-red-500 px-2 py-1 rounded ml-2">
+                  <Text className="text-white text-[10px]">Live</Text>
+                </View>
+              )}
+            </View>
+
+            <Text className="text-gray-500 text-xs font-medium mt-1">{item.category.toUpperCase()}</Text>
+            <Text className="text-gray-700 text-sm mt-1">{item.description}</Text>
+
+            <TouchableOpacity onPress={() => toggleExpand(item.id)}>
+              <Text className="text-indigo-600 font-medium mt-2 text-sm">
+                {expandedCourse === item.id ? 'Hide Modules ▲' : 'Show Modules ▼'}
+              </Text>
+            </TouchableOpacity>
+
+            {expandedCourse === item.id && (
+              <View className="mt-2 space-y-1">
+                {item.modules.map((mod, idx) => (
+                  <Text key={idx} className="text-gray-500 text-sm ml-2">• {mod}</Text>
+                ))}
               </View>
             )}
-          </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setShowNotifications(true)}>
-            <Ionicons name="notifications" size={24} color="white" />
-          </TouchableOpacity>
+            {item.demoVideo && (
+              <TouchableOpacity className="mt-2 bg-indigo-400 py-2 rounded">
+                <Text className="text-white text-center font-medium">Watch Demo Video</Text>
+              </TouchableOpacity>
+            )}
 
-          <TouchableOpacity onPress={() => setShowUserMenu(true)}>
-            <Ionicons name="person-circle" size={28} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
+            <Text className="mt-2 text-yellow-500 font-semibold text-sm">⭐ {item.rating} / 5</Text>
 
-      {/* Search Bar */}
-      <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center bg-white shadow mb-4">
-        <Ionicons name="search" size={20} color="#6b7280" />
-        <TextInput
-          className="flex-1 ml-3 text-gray-800"
-          placeholder="Search courses..."
-          placeholderTextColor="#9ca3af"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color="#6b7280" />
-          </TouchableOpacity>
+            {!cart.find(c => c.id === item.id) && !item.enrolled && (
+              <TouchableOpacity
+                onPress={() => handleAddToCart(item)}
+                className="mt-2 bg-indigo-600 py-2 rounded"
+              >
+                <Text className="text-white text-center font-medium">Add to Cart</Text>
+              </TouchableOpacity>
+            )}
+
+            {item.enrolled && (
+              <TouchableOpacity className="mt-2 bg-green-500 py-2 rounded">
+                <Text className="text-white text-center font-medium">Start Course</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
-      </View>
-
-      {/* Horizontal Slider */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6">
-        {(showAllCourses ? courses : courses.slice(0, 3))
-          .filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase()))
-          .map(renderCourseCard)}
-        {!showAllCourses && (
-          <TouchableOpacity onPress={() => setShowAllCourses(true)} className="bg-gray-200 w-72 h-80 justify-center items-center rounded-2xl ml-2">
-            <Text className="text-gray-700 font-bold">Show More Courses</Text>
-          </TouchableOpacity>
-        )}
-      </ScrollView>
+        ListEmptyComponent={
+          <View className="items-center mt-12">
+            <Text className="text-gray-400 text-base">No courses found.</Text>
+          </View>
+        }
+      />
     </View>
   );
 }
