@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
+  Animated,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -72,12 +74,35 @@ const mockCourses: Course[] = [
   },
 ];
 
-export default function CoursesScreen() {
+// ----- Toast -----
+const Toast = ({ message, type, onHide }: { message: string; type: 'success' | 'error'; onHide: () => void }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.delay(2000),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start(() => onHide());
+  }, [message]);
+
+  return (
+    <Animated.View
+      style={{ opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [50, 0] }) }] }}
+      className={`absolute bottom-8 left-1/2 -ml-24 w-48 p-3 rounded-lg shadow-lg items-center z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}
+    >
+      <Text className="text-white font-semibold text-center">{message}</Text>
+    </Animated.View>
+  );
+};
+
+export default function CoursesScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'enrolled' | 'upcoming' | 'demo'>('all');
   const [cart, setCart] = useState<Course[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(3);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const user = { name: 'Pratik' };
 
@@ -90,9 +115,16 @@ export default function CoursesScreen() {
     })
     .filter(course => course.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
+  const showToast = (message: string, type: 'success' | 'error') => setToast({ message, type });
+
   const handleLogout = () => console.log('Logging out...');
   const handleAddToCart = (course: Course) => {
-    if (!cart.find(c => c.id === course.id)) setCart(prev => [...prev, course]);
+    if (!cart.find(c => c.id === course.id)) {
+      setCart(prev => [...prev, course]);
+      showToast('Course added to cart!', 'success');
+    } else {
+      showToast('Course already in cart!', 'error');
+    }
   };
   const toggleExpand = (id: string) => setExpandedCourse(expandedCourse === id ? null : id);
 
@@ -106,24 +138,25 @@ export default function CoursesScreen() {
             <Text className="text-white text-sm opacity-80">Find your next course</Text>
           </View>
           <View className="flex-row items-center space-x-3">
-            <TouchableOpacity className="relative p-1">
-              <Ionicons name="notifications-outline" size={24} color="white" />
+            <TouchableOpacity onPress={() => Alert.alert('Notifications', 'You have no new notifications.')} className="relative p-2 bg-white/20 rounded-full">
+              <Ionicons name="notifications-outline" size={20} color="white" />
               {unreadNotificationsCount > 0 && (
-                <View className="absolute -top-1 -right-1 bg-red-500 w-4 h-4 rounded-full justify-center items-center">
+                <View className="absolute -top-1 -right-1 bg-red-500 w-5 h-5 rounded-full justify-center items-center">
                   <Text className="text-white text-[10px] font-bold">{unreadNotificationsCount}</Text>
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity className="relative p-1">
-              <Ionicons name="cart-outline" size={24} color="white" />
+            <TouchableOpacity onPress={() => Alert.alert('Cart', `You have ${cart.length} items in your cart.`)} className="relative p-2 bg-white/20 rounded-full">
+              <Ionicons name="cart-outline" size={20} color="white" />
               {cart.length > 0 && (
-                <View className="absolute -top-1 -right-1 bg-green-500 w-4 h-4 rounded-full justify-center items-center">
+                <View className="absolute -top-1 -right-1 bg-green-500 w-5 h-5 rounded-full justify-center items-center">
                   <Text className="text-white text-[10px] font-bold">{cart.length}</Text>
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleLogout} className="p-1">
-              <Ionicons name="log-out-outline" size={24} color="white" />
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} className="p-1 bg-red-500 px-3 py-1 rounded flex-row items-center">
+              <Ionicons name="log-out-outline" size={16} color="white" />
+              <Text className="text-white font-semibold ml-1">Logout</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -234,6 +267,9 @@ export default function CoursesScreen() {
           </View>
         }
       />
+
+      {/* Toast */}
+      {toast && <Toast message={toast.message} type={toast.type} onHide={() => setToast(null)} />}
     </View>
   );
 }
