@@ -235,7 +235,7 @@ const Toast = ({ message, type, onHide }: { message: string; type: 'success' | '
   );
 };
 
-export default function CoursesScreen({ navigation }: any) {
+export default function DashboardScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'enrolled' | 'upcoming' | 'demo' | 'favorites'>('all');
   const [cart, setCart] = useState<Course[]>([]);
@@ -326,7 +326,7 @@ export default function CoursesScreen({ navigation }: any) {
         <View className="flex-row justify-between items-center mb-3">
           <View>
             <Text className="text-white text-2xl font-bold">Hi, {user.name}! 👋</Text>
-            <Text className="text-white text-sm opacity-80">Find your next course</Text>
+            <Text className="text-white text-sm opacity-80">Welcome to your dashboard</Text>
           </View>
           <View className="flex-row items-center space-x-3">
             <TouchableOpacity onPress={() => Alert.alert('Notifications', 'You have no new notifications.')} className="relative p-2 bg-white/20 rounded-full">
