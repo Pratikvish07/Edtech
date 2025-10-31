@@ -98,6 +98,33 @@
   }
 }
 
+@keyframes animatedGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes enhancedGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.4), 0 0 40px rgba(102, 126, 234, 0.2), 0 0 60px rgba(102, 126, 234, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(102, 126, 234, 0.8), 0 0 60px rgba(102, 126, 234, 0.4), 0 0 90px rgba(102, 126, 234, 0.2);
+  }
+}
+
 .animate-fade-in-up {
   animation: fadeInUp 0.8s ease-out;
 }
@@ -232,7 +259,8 @@
   justify-content: center;
   align-items: center;
   width: 100%;
-  padding-vertical: 20px;
+  padding-top: 20px;
+  padding-bottom: 20px;
 }
 
 .character-container {
@@ -246,7 +274,8 @@
   padding: 25px;
   background-color: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.2);
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.4), 0 0 40px rgba(102, 126, 234, 0.2);
+  animation: enhancedGlow 3s ease-in-out infinite alternate;
 }
 
 .login-title {
@@ -264,8 +293,10 @@
 .login-input-wrapper {
   flex-direction: row;
   align-items: center;
-  padding-vertical: 12px;
-  padding-horizontal: 16px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  padding-left: 16px;
+  padding-right: 16px;
   border-radius: 15px;
   background-color: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.1);
@@ -274,7 +305,7 @@
 .login-input-focused {
   border-color: rgba(255,255,255,0.3);
   background-color: rgba(255,255,255,0.15);
-  transform: [{ scale: 1.02 }];
+  transform: scale(1.02);
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
 }
 
@@ -286,7 +317,8 @@
   flex: 1;
   color: white;
   font-size: 16px;
-  padding-vertical: 0px;
+  padding-top: 0px;
+  padding-bottom: 0px;
 }
 
 .login-password-container {
@@ -297,7 +329,8 @@
   padding-top: 14px;
   padding-bottom: 14px;
   border-radius: 20px;
-  box-shadow: 0 0 12px rgba(0, 198, 255, 0.6);
+  box-shadow: 0 0 12px rgba(0, 198, 255, 0.6), 0 0 20px rgba(102, 126, 234, 0.4);
+  animation: gradientShift 2s ease infinite;
 }
 
 .login-button-text {

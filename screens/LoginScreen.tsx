@@ -1,327 +1,945 @@
-import React, { useEffect, useState, useRef } from "react";
+// screens/LoginScreen.tsx
+import React, { useRef, useState, useEffect, memo, forwardRef } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
+  StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  Animated,
   Dimensions,
-  findNodeHandle,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { 
-  Path, Defs, ClipPath, Circle, G, Rect, Ellipse, Use 
-} from "react-native-svg";
-import { StyleSheet } from "react-native";
+import Svg, { G, Path, Circle } from "react-native-svg";
+import { useNavigation } from "@react-navigation/native";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
-export default function LoginScreen({ navigation }: any) {
+// Captcha generator
+const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const generateCaptcha = () =>
+  Array.from({ length: 5 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join("");
+
+// Animated SVG elements
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedG = Animated.createAnimatedComponent(G);
+
+// TypeScript Interfaces
+interface AnimatedInputProps {
+  icon?: string;
+  placeholder: string;
+  value: string;
+  secure?: boolean;
+  onChange: (text: string) => void;
+  keyboardType?: any;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  showToggle?: boolean;
+  toggle?: () => void;
+}
+
+interface AnimatedButtonProps {
+  title: string;
+  onPress: () => void;
+  colors?: readonly [string, string, ...string[]];
+  disabled?: boolean;
+}
+
+interface SocialButtonProps {
+  icon: string;
+  color: string;
+  onPress: () => void;
+  brand?: string;
+}
+
+interface TextButtonProps {
+  title: string;
+  onPress: () => void;
+  color?: string;
+}
+
+interface AnimatedFaceProps {
+  email: string;
+  focusedPassword: boolean;
+  errorShake: Animated.Value;
+  mouthAnimValue: Animated.Value;
+}
+
+/* ------------------ Animated Input ------------------ */
+const AnimatedInput = memo(forwardRef<TextInput, AnimatedInputProps>((props, ref) => {
+  const { icon, placeholder, value, secure, onChange, keyboardType, onFocus, onBlur, showToggle, toggle } = props;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handleFocus = () => {
+    Animated.spring(scale, { toValue: 1.03, useNativeDriver: true }).start();
+    onFocus?.();
+  };
+
+  const handleBlur = () => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
+    onBlur?.();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale }], width: "100%", marginBottom: 6 }}>
+      <View style={styles.inputContainer}>
+        {icon && <Ionicons name={icon as any} size={18} color="#fff" style={{ marginRight: 6 }} />}
+        <TextInput
+          ref={ref}
+          style={styles.input}
+          placeholder={placeholder}
+          placeholderTextColor="rgba(255,255,255,0.6)"
+          value={value}
+          secureTextEntry={secure}
+          onChangeText={onChange}
+          keyboardType={keyboardType}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          autoCapitalize="none"
+        />
+        {showToggle && (
+          <TouchableOpacity onPress={toggle}>
+            <Ionicons
+              name={secure ? "eye-outline" : "eye-off-outline"}
+              size={18}
+              color="rgba(255,255,255,0.7)"
+            />
+          </TouchableOpacity>
+        )}
+      </View>
+    </Animated.View>
+  );
+}));
+
+/* ------------------ Enhanced Animated Button ------------------ */
+const AnimatedButton: React.FC<AnimatedButtonProps> = memo(({
+  title,
+  onPress,
+  colors = ["#3dd2ff", "#0072ff"] as const,
+  disabled = false
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const rippleAnim = useRef(new Animated.Value(0)).current;
+  const rippleOpacity = useRef(new Animated.Value(1)).current;
+  const shimmerAnim = useRef(new Animated.Value(-1)).current;
+
+  useEffect(() => {
+    if (!disabled) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmerAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+          Animated.timing(shimmerAnim, { toValue: -1, duration: 2000, useNativeDriver: true }),
+        ])
+      ).start();
+    }
+  }, [disabled]);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePress = () => {
+    // Ripple effect
+    rippleAnim.setValue(0);
+    rippleOpacity.setValue(1);
+
+    Animated.parallel([
+      Animated.timing(rippleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(rippleOpacity, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
+  const rippleScale = rippleAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.8, 3],
+  });
+
+  const shimmerTranslateX = shimmerAnim.interpolate({
+    inputRange: [-1, 1],
+    outputRange: [-100, 100],
+  });
+
+  return (
+    <TouchableOpacity
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
+      activeOpacity={0.9}
+      disabled={disabled}
+      style={styles.buttonTouchable}
+    >
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <LinearGradient
+          colors={disabled ? ["#666", "#888"] as const : colors}
+          style={[
+            styles.enhancedButton,
+            disabled && styles.buttonDisabled
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          {/* Ripple Effect */}
+          <Animated.View
+            style={[
+              styles.ripple,
+              {
+                transform: [{ scale: rippleScale }],
+                opacity: rippleOpacity,
+              },
+            ]}
+          />
+
+          <Text style={[
+            styles.enhancedButtonText,
+            disabled && styles.buttonDisabledText
+          ]}>
+            {title}
+          </Text>
+
+          {/* Shimmer effect */}
+          {!disabled && (
+            <Animated.View
+              style={[
+                styles.shimmer,
+                { transform: [{ translateX: shimmerTranslateX }] },
+              ]}
+            >
+              <LinearGradient
+                colors={['transparent', 'rgba(255,255,255,0.4)', 'transparent'] as const}
+                style={styles.shimmerGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
+            </Animated.View>
+          )}
+        </LinearGradient>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+});
+
+/* ------------------ Social Login Buttons ------------------ */
+const SocialButton: React.FC<SocialButtonProps> = memo(({ 
+  icon, 
+  color, 
+  onPress,
+  brand 
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  const handlePressIn = () => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 0.85,
+        useNativeDriver: true,
+      }),
+      Animated.timing(glowAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+      Animated.timing(glowAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const glowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.3],
+  });
+
+  return (
+    <TouchableOpacity
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
+      activeOpacity={0.8}
+    >
+      <Animated.View style={[styles.socialButton, { transform: [{ scale: scaleAnim }] }]}>
+        <LinearGradient
+          colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+          style={styles.socialButtonGradient}
+        >
+          <Animated.View style={[styles.socialGlow, { backgroundColor: color, opacity: glowOpacity }]} />
+          <Ionicons name={icon as any} size={24} color={color} />
+        </LinearGradient>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+});
+
+/* ------------------ Text Button ------------------ */
+const TextButton: React.FC<TextButtonProps> = memo(({ 
+  title, 
+  onPress,
+  color = "#78d0ff" 
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const underlineWidth = useRef(new Animated.Value(0)).current;
+
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    Animated.timing(underlineWidth, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+
+    setTimeout(() => {
+      underlineWidth.setValue(0);
+    }, 600);
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
+  const actualWidth = underlineWidth.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
+  return (
+    <TouchableOpacity onPress={handlePress} style={styles.textButtonTouchable}>
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <View style={styles.textButtonContainer}>
+          <Text style={[styles.textButtonText, { color }]}>{title}</Text>
+          <Animated.View 
+            style={[
+              styles.textButtonUnderline, 
+              { width: actualWidth, backgroundColor: color }
+            ]} 
+          />
+        </View>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+});
+
+/* ------------------ Animated Face ------------------ */
+const AnimatedFace: React.FC<AnimatedFaceProps> = memo(({ email, focusedPassword, errorShake, mouthAnimValue }) => {
+  const float = useRef(new Animated.Value(0)).current;
+  const leftEyeX = useRef(new Animated.Value(70)).current;
+  const rightEyeX = useRef(new Animated.Value(130)).current;
+  const handOpacity = useRef(new Animated.Value(0)).current;
+  const blinkAnim = useRef(new Animated.Value(1)).current;
+  const expressionAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(float, { toValue: -4, duration: 2500, useNativeDriver: true }),
+        Animated.timing(float, { toValue: 4, duration: 2500, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  useEffect(() => {
+    const move = email.length > 0 ? (email.includes("@") ? 8 : 4) : 0;
+    Animated.spring(leftEyeX, { toValue: 70 - move, useNativeDriver: true }).start();
+    Animated.spring(rightEyeX, { toValue: 130 + move, useNativeDriver: true }).start();
+  }, [email]);
+
+  useEffect(() => {
+    Animated.timing(handOpacity, {
+      toValue: focusedPassword ? 1 : 0,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  }, [focusedPassword]);
+
+  // Blinking animation
+  useEffect(() => {
+    const blinkInterval = setInterval(() => {
+      Animated.sequence([
+        Animated.timing(blinkAnim, { toValue: 0.1, duration: 150, useNativeDriver: true }),
+        Animated.timing(blinkAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+      ]).start();
+    }, Math.random() * 3000 + 2000); // Random blink every 2-5 seconds
+
+    return () => clearInterval(blinkInterval);
+  }, []);
+
+  // Expression changes based on input
+  useEffect(() => {
+    const hasValidEmail = email.includes("@") && email.length > 5;
+    const hasPassword = focusedPassword;
+    const targetValue = hasValidEmail ? 1 : hasPassword ? 0.5 : 0;
+    Animated.spring(expressionAnim, { toValue: targetValue, useNativeDriver: true }).start();
+  }, [email, focusedPassword]);
+
+  const mouthPath = mouthAnimValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [
+      "M70 90 Q100 90 130 90",
+      "M70 95 Q100 105 130 95",
+      "M70 100 Q100 120 130 100",
+    ],
+  });
+
+  const expressionMouthPath = expressionAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [
+      "M70 90 Q100 90 130 90", // Neutral
+      "M70 95 Q100 105 130 95", // Curious
+      "M70 100 Q100 110 130 100", // Happy
+    ],
+  });
+
+  const eyeScaleY = blinkAnim.interpolate({
+    inputRange: [0.1, 1],
+    outputRange: [0.1, 1],
+  });
+
+  return (
+    <Animated.View
+      style={{
+        transform: [{ translateY: float }, { translateX: errorShake }],
+        alignItems: "center",
+        marginBottom: 10,
+      }}
+    >
+      <Svg height={130} width={160} viewBox="0 0 200 200">
+        <Circle cx={100} cy={90} r={60} fill="#ffffff10" />
+        <G>
+          <AnimatedCircle
+            cx={leftEyeX}
+            cy={75}
+            r={7.5}
+            fill="#fff"
+            transform={`scale(1, ${eyeScaleY})`}
+          />
+          <AnimatedCircle
+            cx={rightEyeX}
+            cy={75}
+            r={7.5}
+            fill="#fff"
+            transform={`scale(1, ${eyeScaleY})`}
+          />
+        </G>
+        <AnimatedPath d={expressionMouthPath as any} stroke="#fff" strokeWidth={3.2} fill="none" />
+        <AnimatedG opacity={handOpacity}>
+          <Path d="M44 70 Q60 30 80 64" stroke="#fff" strokeWidth={4} fill="none" />
+          <Path d="M156 70 Q140 30 120 64" stroke="#fff" strokeWidth={4} fill="none" />
+        </AnimatedG>
+      </Svg>
+    </Animated.View>
+  );
+});
+
+/* ------------------ Main Login Screen ------------------ */
+const LoginScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isFocused, setIsFocused] = useState({ email: false, password: false });
-  const [caretPosition, setCaretPosition] = useState({ x: 0, y: 0 });
-  
-  const emailRef = useRef(null);
-  const passwordRef = useRef(null);
-  const svgContainerRef = useRef(null);
+  const [captcha, setCaptcha] = useState(generateCaptcha());
+  const [captchaInput, setCaptchaInput] = useState("");
+  const fade = useRef(new Animated.Value(0)).current;
+  const mouthAnimValue = useRef(new Animated.Value(0)).current;
+  const errorShake = useRef(new Animated.Value(0)).current;
 
-  // Animation states based on email input
-  const getMouthState = () => {
-    if (email.length === 0) return "small";
-    if (email.includes("@")) return "large";
-    return "medium";
+  // Ref for password input focus state
+  const [focusedPassword, setFocusedPassword] = useState(false);
+
+  useEffect(() => {
+    Animated.timing(fade, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+  }, []);
+
+  const triggerShake = () => {
+    Animated.sequence([
+      Animated.timing(errorShake, { toValue: -8, duration: 50, useNativeDriver: true }),
+      Animated.timing(errorShake, { toValue: 8, duration: 50, useNativeDriver: true }),
+      Animated.timing(errorShake, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   };
 
-  const getEyeScale = () => {
-    if (email.length === 0) return 1;
-    if (email.includes("@")) return 0.65;
-    return 0.85;
+  const navigation = useNavigation();
+
+  const handleSubmit = () => {
+    if (!email || !password || captchaInput.toUpperCase() !== captcha) {
+      triggerShake();
+      return;
+    }
+    if (email.includes("admin")) {
+      navigation.navigate("Admin" as never);
+    } else if (email.includes("pratik")) {
+      navigation.navigate("Main" as never);
+    } else {
+      navigation.navigate("Main" as never);
+    }
   };
 
-  const mouthState = getMouthState();
-  const eyeScale = getEyeScale();
-
-  // Calculate approximate caret position for eye tracking
-  const calculateCaretPosition = () => {
-    // Simplified calculation - in a real app you'd need more complex measurement
-    const emailLength = email.length;
-    const approximateCaretX = (emailLength / 30) * 100; // Normalize based on typical email length
-    
-    // Map to SVG coordinate system
-    const eyeCenterX = 100; // Center of SVG
-    const maxEyeMovement = 20;
-    
-    let eyeX = (approximateCaretX - 50) * (maxEyeMovement / 50);
-    eyeX = Math.max(-maxEyeMovement, Math.min(maxEyeMovement, eyeX));
-    
-    return { eyeX, eyeY: 0 };
+  const handleSocialLogin = (platform: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    alert(`${platform} login clicked!`);
   };
-
-  const { eyeX, eyeY } = calculateCaretPosition();
 
   return (
-    <View style={styles.loginContainer}>
-      {/* Animated Gradient Background */}
-      <LinearGradient
-        colors={["#0a0f24", "#1a1f34", "#2a2f44"]}
-        style={styles.loginGradientBackground}
-      />
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.loginKeyboardView}
-      >
-        <ScrollView
-          contentContainerStyle={styles.loginScrollView}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Interactive SVG Character */}
-          <View style={styles.characterContainer}>
-            <Svg width={200} height={200} viewBox="0 0 200 200">
-              {/* Body */}
-              <G>
-                <Path fill="#a9ddf3" d="M100,100 C100,100 100,100 100,100"/>
-                <G>
-                  <Path fill="#FFFFFF" d="M193.3,135.9c-5.8-8.4-15.5-13.9-26.5-13.9H151V72c0-27.6-22.4-50-50-50S51,44.4,51,72v50H32.1 c-10.6,0-20,5.1-25.8,13l0,78h187L193.3,135.9z"/>
-                  <Path fill="none" stroke="#3A5E77" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d="M193.3,135.9 c-5.8-8.4-15.5-13.9-26.5-13.9H151V72c0-27.6-22.4-50-50-50S51,44.4,51,72v50H32.1c-10.6,0-20,5.1-25.8,13"/>
-                  <Path fill="#DDF1FA" d="M100,156.4c-22.9,0-43,11.1-54.1,27.7c15.6,10,34.2,15.9,54.1,15.9s38.5-5.8,54.1-15.9 C143,167.5,122.9,156.4,100,156.4z"/>
-                </G>
-                
-                {/* Face */}
-                <Path fill="#DDF1FA" d="M134.5,46v35.5c0,21.815-15.446,39.5-34.5,39.5s-34.5-17.685-34.5-39.5V46"/>
-                
-                {/* Eyes with animation */}
-                <G>
-                  <G style={{ transform: [{ translateX: eyeX }, { translateY: eyeY }, { scale: eyeScale }] }}>
-                    <Circle cx="85.5" cy="78.5" r="3.5" fill="#3a5e77"/>
-                    <Circle cx="84" cy="76" r="1" fill="#fff"/>
-                  </G>
-                  <G style={{ transform: [{ translateX: eyeX }, { translateY: eyeY }, { scale: eyeScale }] }}>
-                    <Circle cx="114.5" cy="78.5" r="3.5" fill="#3a5e77"/>
-                    <Circle cx="113" cy="76" r="1" fill="#fff"/>
-                  </G>
-                </G>
-
-                {/* Animated Mouth */}
-                <G>
-                  {mouthState === "small" && (
-                    <Path fill="#617E92" d="M100.2,101c-0.4,0-1.4,0-1.8,0c-2.7-0.3-5.3-1.1-8-2.5c-0.7-0.3-0.9-1.2-0.6-1.8 c0.2-0.5,0.7-0.7,1.2-0.7c0.2,0,0.5,0.1,0.6,0.2c3,1.5,5.8,2.3,8.6,2.3s5.7-0.7,8.6-2.3c0.2-0.1,0.4-0.2,0.6-0.2 c0.5,0,1,0.3,1.2,0.7c0.4,0.7,0.1,1.5-0.6,1.9c-2.6,1.4-5.3,2.2-7.9,2.5C101.7,101,100.5,101,100.2,101z"/>
-                  )}
-                  {mouthState === "medium" && (
-                    <Path fill="#617E92" d="M95,104.2c-4.5,0-8.2-3.7-8.2-8.2v-2c0-1.2,1-2.2,2.2-2.2h22c1.2,0,2.2,1,2.2,2.2v2 c0,4.5-3.7,8.2-8.2,8.2H95z"/>
-                  )}
-                  {mouthState === "large" && (
-                    <G>
-                      <Path fill="#617E92" d="M100 110.2c-9 0-16.2-7.3-16.2-16.2 0-2.3 1.9-4.2 4.2-4.2h24c2.3 0 4.2 1.9 4.2 4.2 0 9-7.2 16.2-16.2 16.2z"/>
-                      <Circle cx="100" cy="107" r="8" fill="#cc4a6c"/>
-                      <Ellipse cx="100" cy="100.5" rx="3" ry="1.5" opacity="0.1" fill="#fff"/>
-                    </G>
-                  )}
-                </G>
-
-                {/* Nose */}
-                <Path fill="#3a5e77" d="M97.7 79.9h4.7c1.9 0 3 2.2 1.9 3.7l-2.3 3.3c-.9 1.3-2.9 1.3-3.8 0l-2.3-3.3c-1.3-1.6-.2-3.7 1.8-3.7z"/>
-                
-                {/* Arms - Cover eyes when password is focused */}
-                <G opacity={isFocused.password ? 1 : 0}>
-                  <Path fill="#ddf1fa" stroke="#3a5e77" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d="M121.3 97.4L111 58.7l38.8-10.4 20 36.1z"/>
-                  <Path fill="#ddf1fa" stroke="#3a5e77" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d="M265.4 97.3l10.4-38.6-38.9-10.5-20 36.1z"/>
-                </G>
-              </G>
-            </Svg>
-          </View>
-
-          {/* Glassmorphic Card */}
-          <View style={styles.loginGlassCard}>
-            <Text style={styles.loginTitle}>
-              Welcome Back 👋
-            </Text>
-
-            {/* Email Input */}
-            <View style={styles.loginInputContainer}>
-              <View style={[
-                styles.loginInputWrapper,
-                isFocused.email && styles.loginInputFocused
-              ]}>
-                <Ionicons
-                  name="mail-outline"
-                  size={22}
-                  color="white"
-                  style={styles.loginInputIcon}
-                />
-                <TextInput
-                  ref={emailRef}
-                  style={styles.loginInput}
-                  placeholder="Email"
-                  placeholderTextColor="rgba(255,255,255,0.7)"
-                  value={email}
-                  onChangeText={setEmail}
-                  onFocus={() => setIsFocused({ ...isFocused, email: true })}
-                  onBlur={() => setIsFocused({ ...isFocused, email: false })}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                />
-              </View>
-            </View>
-
-            {/* Password Input */}
-            <View style={styles.loginPasswordContainer}>
-              <View style={[
-                styles.loginInputWrapper,
-                isFocused.password && styles.loginInputFocused
-              ]}>
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={22}
-                  color="white"
-                  style={styles.loginInputIcon}
-                />
-                <TextInput
-                  ref={passwordRef}
-                  style={styles.loginInput}
-                  placeholder="Password"
-                  placeholderTextColor="rgba(255,255,255,0.7)"
-                  value={password}
-                  secureTextEntry={!showPassword}
-                  onChangeText={setPassword}
-                  onFocus={() => setIsFocused({ ...isFocused, password: true })}
-                  onBlur={() => setIsFocused({ ...isFocused, password: false })}
-                />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons
-                    name={showPassword ? "eye-off-outline" : "eye-outline"}
-                    size={22}
-                    color="white"
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Sign In Button */}
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => {
-                if (!email.trim() || !password.trim()) {
-                  alert("Please fill in all fields");
-                  return;
-                }
-                if (email === "admin@gmail.com" && password === "Admin") {
-                  navigation.navigate("Admin");
-                } else {
-                  navigation.navigate("Main");
-                }
-              }}
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <LinearGradient colors={["#0a0a0a", "#1a1a2e", "#16213e", "#0f3460"]} style={styles.container}>
+        {/* Particle Effects Background */}
+        <View style={styles.particlesContainer}>
+          {Array.from({ length: 20 }).map((_, i) => (
+            <Animated.View
+              key={i}
+              style={[
+                styles.particle,
+                {
+                  left: Math.random() * width,
+                  top: Math.random() * Dimensions.get('window').height,
+                  transform: [
+                    {
+                      translateY: new Animated.Value(0).interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -100],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          ))}
+        </View>
+        <Animated.View style={{ flex: 1, opacity: fade }}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.keyboardView}
+          >
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
             >
-              <LinearGradient
-                colors={["#00c6ff", "#0072ff"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.loginButton}
-              >
-                <Text style={styles.loginButtonText}>
-                  Sign In
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
-  );
-}
+              <Animated.View style={[styles.cardGlow, { opacity: fade }]}>
+                <BlurView intensity={60} tint="dark" style={styles.card}>
+                <AnimatedFace
+                  email={email}
+                  focusedPassword={focusedPassword}
+                  errorShake={errorShake}
+                  mouthAnimValue={mouthAnimValue}
+                />
 
+                <Text style={styles.title}>Welcome Back</Text>
+
+                <AnimatedInput
+                  icon="mail-outline"
+                  placeholder="Email"
+                  value={email}
+                  onChange={setEmail}
+                />
+                <AnimatedInput
+                  icon="lock-closed-outline"
+                  placeholder="Password"
+                  value={password}
+                  secure={!showPassword}
+                  onChange={setPassword}
+                  showToggle
+                  toggle={() => setShowPassword(!showPassword)}
+                  onFocus={() => {
+                    setFocusedPassword(true);
+                    Animated.timing(mouthAnimValue, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+                  }}
+                  onBlur={() => setFocusedPassword(false)}
+                />
+
+                {/* Captcha */}
+                <View style={styles.captchaRow}>
+                  <View style={styles.captchaBox}>
+                    <Text style={styles.captchaText}>{captcha}</Text>
+                  </View>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setCaptcha(generateCaptcha());
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    style={styles.refreshButton}
+                  >
+                    <Ionicons name="refresh" size={22} color="#78d0ff" />
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.captchaInput}
+                  placeholder="Enter captcha"
+                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  value={captchaInput}
+                  onChangeText={setCaptchaInput}
+                  autoCapitalize="characters"
+                />
+
+                {/* Sign In Button */}
+                <AnimatedButton 
+                  title="Sign In" 
+                  onPress={handleSubmit}
+                  colors={["#3dd2ff", "#0072ff", "#0050c8"]}
+                  disabled={!email || !password || captchaInput.toUpperCase() !== captcha}
+                />
+
+                {/* OR divider */}
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>OR</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                {/* Social Buttons Row */}
+                <View style={styles.socialIconsRow}>
+                  <SocialButton 
+                    icon="logo-google" 
+                    color="#DB4437" 
+                    onPress={() => handleSocialLogin('Google')}
+                  />
+                  <SocialButton 
+                    icon="logo-facebook" 
+                    color="#4267B2" 
+                    onPress={() => handleSocialLogin('Facebook')}
+                  />
+                  <SocialButton 
+                    icon="logo-apple" 
+                    color="#FFFFFF" 
+                    onPress={() => handleSocialLogin('Apple')}
+                  />
+                </View>
+
+                {/* Additional Options */}
+                <View style={styles.additionalOptions}>
+                  <TextButton 
+                    title="Forgot Password?" 
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      alert('Forgot password flow');
+                    }}
+                    color="#78d0ff"
+                  />
+                  <TextButton
+                    title="Create Account"
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      alert('Sign up flow');
+                    }}
+                    color="#ff6b6b"
+                  />
+                </View>
+                </BlurView>
+              </Animated.View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </Animated.View>
+      </LinearGradient>
+    </TouchableWithoutFeedback>
+  );
+};
+
+export default LoginScreen;
+
+/* ------------------ Enhanced Styles ------------------ */
 const styles = StyleSheet.create({
-  loginContainer: {
-    flex: 1,
-    backgroundColor: "#0a0f24",
+  container: { 
+    flex: 1 
   },
-  loginGradientBackground: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
+  keyboardView: { 
+    flex: 1 
   },
-  loginKeyboardView: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  scrollContent: { 
+    flexGrow: 1, 
+    justifyContent: "center", 
+    alignItems: "center" 
   },
-  loginScrollView: {
-    flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    width: "100%",
-    paddingVertical: 20,
-  },
-  characterContainer: {
-    marginBottom: 30,
-    alignItems: "center",
-  },
-  loginGlassCard: {
-    width: "85%",
-    borderRadius: 30,
-    padding: 25,
-    backgroundColor: "rgba(255,255,255,0.1)",
+  card: {
+    width: width * 0.9,
+    maxWidth: 380,
+    padding: 20,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(255,255,255,0.08)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-    shadowColor: "#fff",
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 0 },
+    alignItems: "center",
+    overflow: 'hidden',
   },
-  loginTitle: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: "#fff",
-    textAlign: "center",
-    marginBottom: 30,
+  title: { 
+    color: "#fff", 
+    fontSize: 24, 
+    fontWeight: "700", 
+    marginBottom: 16,
+    textAlign: 'center',
   },
-  loginInputContainer: {
-    marginBottom: 20,
-  },
-  loginPasswordContainer: {
-    marginBottom: 25,
-  },
-  loginInputWrapper: {
+  inputContainer: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 14,
+    minHeight: 48,
+    marginBottom: 8,
+  },
+  input: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 15,
+    paddingVertical: 8,
+  },
+  captchaRow: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    marginVertical: 12,
+    width: '100%',
+  },
+  captchaBox: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "center",
+    marginRight: 12,
+  },
+  captchaText: { 
+    color: "#78d0ff", 
+    fontSize: 18, 
+    fontWeight: "700", 
+    letterSpacing: 3 
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  captchaInput: {
+    width: "100%",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 12,
+    color: "#fff",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 15,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    textAlign: "center",
+    fontSize: 16,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
   },
-  loginInputFocused: {
-    borderColor: "rgba(255,255,255,0.3)",
-    backgroundColor: "rgba(255,255,255,0.15)",
-  },
-  loginInputIcon: {
-    marginRight: 12,
-  },
-  loginInput: {
-    flex: 1,
-    color: "white",
-    fontSize: 16,
-    paddingVertical: 0,
-  },
-  loginButton: {
-    paddingVertical: 16,
-    borderRadius: 20,
-    shadowColor: "#00c6ff",
-    shadowOpacity: 0.6,
+
+  // Enhanced Primary Button Styles
+  buttonTouchable: {
+    width: '100%',
+    marginTop: 16,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#0072ff',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
     shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-  loginButtonText: {
-    textAlign: "center",
-    color: "white",
-    fontWeight: "700",
-    fontSize: 18,
+  enhancedButton: {
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    minHeight: 54,
+  },
+  enhancedButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonDisabledText: {
+    color: '#ccc',
+  },
+  ripple: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    top: '50%',
+    left: '50%',
+    marginLeft: -10,
+    marginTop: -10,
+  },
+  shine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+  },
+  shimmer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  shimmerGradient: {
+    width: '100%',
+    height: '100%',
+  },
+
+  // Social Button Styles
+  socialIconsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    width: "100%",
+    gap: 20,
+    marginVertical: 16,
+  },
+  socialButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  socialButtonGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  socialGlow: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+  },
+
+  // Text Button Styles
+  additionalOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  textButtonTouchable: {
+    marginVertical: 4,
+  },
+  textButtonContainer: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  textButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  textButtonUnderline: {
+    height: 2,
+    marginTop: 2,
+    borderRadius: 1,
+  },
+
+  // Divider Styles
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 20,
+    width: "100%",
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.2)"
+  },
+  dividerText: {
+    color: "rgba(255,255,255,0.5)",
+    paddingHorizontal: 12,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Particle Effects
+  particlesContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
+  },
+  particle: {
+    position: 'absolute',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+
+  // Card Glow Effect
+  cardGlow: {
+    shadowColor: '#3dd2ff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+    elevation: 20,
   },
 });

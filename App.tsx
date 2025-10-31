@@ -17,10 +17,8 @@ import SupportScreen from "./screens/SupportScreen";
 import "./global.css";
 import "./styles.css";
 
-if (Platform.OS !== 'web') {
-  require("./global.css");
-  require("./styles.css");
-}
+import "./global.css";
+import "./styles.css";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
